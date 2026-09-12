@@ -6,8 +6,10 @@ EditorBuildSettings:
   serializedVersion: 2
   m_Scenes:
   - enabled: 1
-    path: Assets/Scenes/SampleScene.unity
-    guid: 99c9720ab356a0642a771bea13969a05
+    path: Assets/LoLAR/Scenes/LoLAR.unity
+    guid: e9ab4e9f8e6c8e042ba2003ad880d46b
   m_configObjects:
+    UnityEditor.XR.ARCore.ARCoreSettings: {fileID: 11400000, guid: 36994b71c3dc15946a88eeb471c23a54, type: 2}
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}
-  m_UseUCBPForAssetBundles: 0
+    com.unity.xr.arfoundation.simulation_settings: {fileID: 11400000, guid: 716f6f9942c059446b9c0691121ffa3d, type: 2}
+    com.unity.xr.management.loader_settings: {fileID: 11400000, guid: 9f281fe2a9e5c854788a5782ee336b98, type: 2}
