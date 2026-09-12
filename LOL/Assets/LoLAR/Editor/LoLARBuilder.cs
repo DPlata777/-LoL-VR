@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using Unity.XR.CoreUtils;
@@ -38,7 +39,7 @@ namespace LoLAR.EditorTools
 
         // Medidas físicas en metros.
         const float CardWidth = 0.063f; // Carta estándar de 63 x 88 mm.
-        const float MapSize = 0.18f;
+        const float MapSize = 0.15f; // Lado del cuadrado jugable de la Grieta.
         const float IconHeight = 0.035f;
         const float DragonHeight = 0.06f;
         const float BattleRadius = 0.11f;
@@ -48,6 +49,8 @@ namespace LoLAR.EditorTools
         const float ChampionYaw = 0f;
 
         const string DragonModelPath = "Assets/Models/Dragon/elder_dragon.glb";
+        const string MapModelPath = "Assets/Models/Map/summoners_rift.glb";
+        const string MarkerPrefix = "LoLAR_";
 
         static readonly ChampionDef[] Champions =
         {
@@ -335,8 +338,77 @@ namespace LoLAR.EditorTools
             pivot.transform.SetParent(root.transform, false);
             pivot.AddComponent<MapRotator>();
 
+            if (!TryBuildRiftModel(pivot.transform, out var markers))
+                BuildProceduralRift(pivot.transform, p);
+
+            foreach (var role in Roles)
+            {
+                var position = markers != null && markers.TryGetValue(role.Id, out var marker)
+                    ? marker
+                    : new Vector3(role.Position.x * MapSize, 0f, role.Position.y * MapSize);
+                BuildLanePopup(pivot.transform, role, position, p);
+            }
+
+            return root;
+        }
+
+        /// <summary>
+        /// Coloca el modelo de la Grieta exportado desde Blender. El GLB trae empties "LoLAR_*" a nivel del suelo:
+        /// SquareMin/SquareMax (fuentes) definen la escala, Center el anclaje y Top/Jungla/Mid/Bot/Soporte los pop-ups.
+        /// </summary>
+        static bool TryBuildRiftModel(Transform pivot, out Dictionary<string, Vector3> markers)
+        {
+            markers = null;
+            var asset = AssetDatabase.LoadAssetAtPath<GameObject>(MapModelPath);
+            if (!asset)
+            {
+                Debug.LogWarning($"[LoL AR] No se encontró {MapModelPath}; uso el mapa de figuras simples.");
+                return false;
+            }
+
+            var instance = PrefabUtility.InstantiatePrefab(asset) as GameObject;
+            if (!instance)
+                instance = Object.Instantiate(asset);
+            instance.name = "SummonersRift_Model";
+            instance.transform.SetParent(pivot, false);
+
+            var children = instance.GetComponentsInChildren<Transform>(true);
+            var squareMin = children.FirstOrDefault(t => t.name == MarkerPrefix + "SquareMin");
+            var squareMax = children.FirstOrDefault(t => t.name == MarkerPrefix + "SquareMax");
+            var center = children.FirstOrDefault(t => t.name == MarkerPrefix + "Center");
+
+            if (!squareMin || !squareMax)
+            {
+                Debug.LogWarning("[LoL AR] El modelo del mapa no tiene marcadores LoLAR_*; lo ajusto por sus bounds.");
+                if (TryGetBounds(instance.transform, out var bounds))
+                {
+                    instance.transform.localScale *= MapSize * 1.3f / Mathf.Max(bounds.size.x, bounds.size.z);
+                    TryGetBounds(instance.transform, out bounds);
+                    instance.transform.position -= new Vector3(bounds.center.x, bounds.min.y, bounds.center.z);
+                }
+                return true;
+            }
+
+            var diagonal = squareMax.position - squareMin.position;
+            instance.transform.localScale *= MapSize / Mathf.Max(Mathf.Abs(diagonal.x), Mathf.Abs(diagonal.z));
+
+            var anchor = center ? center.position : (squareMin.position + squareMax.position) * 0.5f;
+            instance.transform.position -= anchor;
+
+            markers = new Dictionary<string, Vector3>();
+            foreach (var child in children)
+            {
+                if (child.name.StartsWith(MarkerPrefix))
+                    markers[child.name.Substring(MarkerPrefix.Length)] = pivot.InverseTransformPoint(child.position);
+            }
+            return true;
+        }
+
+        /// <summary>Mapa de figuras simples, usado si no está el modelo de Blender.</summary>
+        static void BuildProceduralRift(Transform pivot, Palette p)
+        {
             var rift = new GameObject("SummonersRift").transform;
-            rift.SetParent(pivot.transform, false);
+            rift.SetParent(pivot, false);
             rift.localScale = Vector3.one * MapSize;
 
             Prim(PrimitiveType.Cube, rift, "Base", new Vector3(0f, -0.02f, 0f), new Vector3(1f, 0.04f, 1f), p.Grass);
@@ -375,17 +447,13 @@ namespace LoLAR.EditorTools
                 }
             }
 
-            foreach (var role in Roles)
-                BuildLanePopup(pivot.transform, role, p);
-
-            return root;
         }
 
-        static void BuildLanePopup(Transform parent, RoleDef role, Palette p)
+        static void BuildLanePopup(Transform parent, RoleDef role, Vector3 localPosition, Palette p)
         {
             var popupGo = new GameObject("Popup_" + role.Id);
             popupGo.transform.SetParent(parent, false);
-            popupGo.transform.localPosition = new Vector3(role.Position.x * MapSize, 0f, role.Position.y * MapSize);
+            popupGo.transform.localPosition = localPosition;
             var roleMaterial = Palette.Lit("Role_" + role.Id, role.Color, 0.6f, true);
 
             Prim(PrimitiveType.Cylinder, popupGo.transform, "Pole", new Vector3(0f, IconHeight * 0.5f, 0f), new Vector3(0.0012f, IconHeight * 0.5f, 0.0012f), p.Pole);

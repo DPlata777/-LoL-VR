@@ -26,6 +26,21 @@ Experiencia AR con AR Foundation 6.6 + ARCore (Android) y dos cartas físicas.
 - Tamaño físico configurado: **6,3 cm de ancho** (carta estándar). Si imprimen otro tamaño, cambia `CardWidth` en `Editor/LoLARBuilder.cs`.
 - Consejos para ARCore: mucho detalle y contraste, sin patrones repetitivos y sin grandes zonas lisas. Imprimir en mate evita reflejos.
 
+## Mapa (Blender)
+
+`Assets/Models/Map/summoners_rift.glb` se exporta desde `Grieta del Invocador.blend`, que queda fuera del repo porque pesa 186 MB, con el script `LOL/Tools/export_map.py`. El script:
+- quita los acantilados que quedan fuera del cuadrado jugable;
+- reduce las 99 texturas de 2048 px a 512 px para que el celular aguante;
+- agrega empties `LoLAR_*` al nivel del suelo: `SquareMin` y `SquareMax` (las fuentes) fijan la escala, `Center` el anclaje, y `Top`, `Jungla`, `Mid`, `Bot` y `Soporte` la posición de cada pop-up.
+
+Para regenerarlo (desde la carpeta `LOL`):
+
+```bash
+"C:/Program Files/Blender Foundation/Blender 5.2/blender.exe" -b "../../Grieta del Invocador.blend" --python Tools/export_map.py -- Assets/Models/Map/summoners_rift.glb
+```
+
+Luego ejecuten **LoL AR > 3. Generar prefabs y escena**. Para mover un pop-up, cambien sus coordenadas en `POINTS` dentro del script.
+
 ## 3. Probar en el celular
 
 1. Activa las *Opciones de desarrollador* y la *Depuración USB* en el Android (que sea compatible con ARCore / Google Play Services for AR).
@@ -37,7 +52,7 @@ Experiencia AR con AR Foundation 6.6 + ARCore (Android) y dos cartas físicas.
 |-----|-------|
 | Distancia para la batalla | `XR Origin (AR) > Card Tracking Controller > Battle Enter/Exit Distance` |
 | Modelo al revés | `DragonYaw` / `ChampionYaw` en `LoLARBuilder.cs`, y luego **LoL AR > 3** |
-| Tamaño del mapa, dragón o campeones | `MapSize`, `DragonHeight` y la altura de cada campeón en `LoLARBuilder.cs` |
+| Tamaño del mapa, dragón o campeones | `MapSize` (lado del cuadrado jugable), `DragonHeight` y la altura de cada campeón en `LoLARBuilder.cs` |
 | Textos de los roles | arreglo `Roles` en `LoLARBuilder.cs` |
 | Ritmo del combate | componente `BattleDirector` del prefab `BattleContent` |
 
