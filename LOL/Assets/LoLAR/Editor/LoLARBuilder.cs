@@ -38,7 +38,7 @@ namespace LoLAR.EditorTools
         const string DragonCardName = "DragonCard";
 
         // Medidas físicas en metros.
-        const float CardWidth = 0.063f; // Carta estándar de 63 x 88 mm.
+        const float CardWidth = 0.09f; // Ancho impreso de las cartas (9 cm); el alto sale de la proporción de la imagen.
         const float MapSize = 0.15f; // Lado del cuadrado jugable de la Grieta.
         const float IconHeight = 0.035f;
         const float DragonHeight = 0.06f;
@@ -49,6 +49,10 @@ namespace LoLAR.EditorTools
         const float ChampionYaw = 0f;
 
         const string DragonModelPath = "Assets/Models/Dragon/elder_dragon.glb";
+        const string FlyingDragonModelPath = "Assets/Models/Dragon/dragon_flying.glb";
+        // Tramo de vuelo de "Landing" que se repite (segundos); en ambos extremos coinciden altura y aleteo.
+        const float FlyingLoopStartSeconds = 0.27f;
+        const float FlyingLoopEndSeconds = 2.50f;
         const string MapModelPath = "Assets/Models/Map/summoners_rift.glb";
         const string MarkerPrefix = "LoLAR_";
 
@@ -168,7 +172,8 @@ namespace LoLAR.EditorTools
             var dragon = SavePrefab(BuildDragonContent(palette), PrefabsDir + "/DragonContent.prefab");
             var battle = SavePrefab(BuildBattleContent(palette), PrefabsDir + "/BattleContent.prefab");
 
-            BuildScene(library, map, dragon, battle);
+            // NewScene descarga los assets en memoria: la librería cargada antes queda destruida y se guardaría como null.
+            BuildScene(AssetDatabase.LoadAssetAtPath<XRReferenceImageLibrary>(LibraryPath), map, dragon, battle);
             EditorSceneManager.SaveScene(scene, ScenePath);
             EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(ScenePath, true) };
             AssetDatabase.SaveAssets();
@@ -529,13 +534,36 @@ namespace LoLAR.EditorTools
             var root = new GameObject("DragonContent");
             BuildPit(root.transform, 0.12f, p);
 
-            var dragon = new GameObject("Dragon").transform;
+            // Carta del dragón sola: dragón volando. El Dragón Ancestral con su animación queda para la batalla.
+            // Label distinto para no sobrescribir Dragon.controller, que usa BattleContent.
+            var modelPath = AssetDatabase.LoadAssetAtPath<GameObject>(FlyingDragonModelPath) ? FlyingDragonModelPath : DragonModelPath;
+            var dragon = new GameObject("DragonFlying").transform;
             dragon.SetParent(root.transform, false);
-            SpawnModel(DragonModelPath, dragon, DragonHeight, DragonYaw, "Dragon");
+            SpawnModel(modelPath, dragon, DragonHeight, DragonYaw, "DragonFlying");
             dragon.localRotation = Quaternion.Euler(0f, 180f, 0f); // Mirando hacia quien sostiene la carta.
-            dragon.gameObject.AddComponent<ModelAnimationLooper>().pauseBetweenCycles = Vector2.zero;
+
+            var looper = dragon.gameObject.AddComponent<ModelAnimationLooper>();
+            looper.pauseBetweenCycles = Vector2.zero;
+
+            // "Landing" vuela hasta ~4,3 s y luego aterriza. Se repite solo un tramo de vuelo cuyas poses
+            // inicial y final coinciden (altura del cuerpo y aleteo), para que se quede volando.
+            float clipLength = GetClipLength(modelPath);
+            if (modelPath == FlyingDragonModelPath && clipLength > FlyingLoopEndSeconds)
+            {
+                looper.segmentStart = FlyingLoopStartSeconds / clipLength;
+                looper.segmentEnd = FlyingLoopEndSeconds / clipLength;
+                looper.segmentBlend = 0.2f;
+            }
 
             return root;
+        }
+
+        static float GetClipLength(string assetPath)
+        {
+            var clip = AssetDatabase.LoadAllAssetsAtPath(assetPath)
+                .OfType<AnimationClip>()
+                .FirstOrDefault(c => !c.name.StartsWith("__preview__"));
+            return clip ? clip.length : 0f;
         }
 
         static GameObject BuildBattleContent(Palette p)
@@ -701,6 +729,8 @@ namespace LoLAR.EditorTools
             var state = stateMachine.AddState(ModelAnimationLooper.LoopStateName);
             state.motion = clip;
             stateMachine.defaultState = state;
+            // Copia del estado para mezclar al repetir solo un tramo del clip.
+            stateMachine.AddState(ModelAnimationLooper.LoopStateNameB).motion = clip;
 
             var animator = instance.GetComponentInChildren<Animator>(true);
             if (!animator)

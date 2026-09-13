@@ -5,8 +5,8 @@ Experiencia AR con AR Foundation 6.6 + ARCore (Android) y dos cartas físicas.
 | Carta | Nombre en la librería | Qué aparece |
 |-------|----------------------|-------------|
 | Personaje / Mapa | `MapCard` | Mapa de la Grieta con 5 íconos (Top, Jungla, Mid, Bot/ADC, Soporte). Toca un ícono para ver su info. Desliza el dedo para girar el mapa. |
-| Dragón | `DragonCard` | El Dragón Ancestral animado. |
-| Ambas juntas (< 15 cm) | — | Batalla sobre la carta del dragón: fosa, rugido y 5 campeones (Ashe, Braum, Dr. Mundo, Katarina, Maestro Yi) atacando. |
+| Dragón | `DragonCard` | El dragón volando (`Models/Dragon/dragon_flying.glb`). Su clip "Landing" aterriza al final, así que solo se repite el tramo de vuelo de 0,27 s a 2,50 s (`FlyingLoopStartSeconds`/`FlyingLoopEndSeconds` en el builder). |
+| Ambas juntas (< 15 cm) | — | Batalla sobre la carta del dragón: el Dragón Ancestral (`elder_dragon.glb`) sale de la fosa, ruge y pelea contra 5 campeones (Ashe, Braum, Dr. Mundo, Katarina, Maestro Yi). |
 
 ## 1. Primera vez
 
@@ -21,9 +21,9 @@ Experiencia AR con AR Foundation 6.6 + ARCore (Android) y dos cartas físicas.
 
 ## 2. Cartas
 
-- Las imágenes generadas son **provisionales**: patrones de alto contraste que ARCore rastrea bien.
-- Para usar el diseño real, reemplaza `MapCard.png` o `DragonCard.png` **con el mismo nombre** y ejecuta **LoL AR > 2. Generar cartas y Reference Image Library**.
-- Tamaño físico configurado: **6,3 cm de ancho** (carta estándar). Si imprimen otro tamaño, cambia `CardWidth` en `Editor/LoLARBuilder.cs`.
+- `MapCard.png` es **Carta personaje** (Katarina, Mid Lane) y `DragonCard.png` es **Carta Dragon** (Dragón Ancestral).
+- **Tamaño de impresión: 9 cm de ancho.** La carta del personaje queda de 9 × 13,4 cm y la del dragón de 9 × 12,8 cm. Impriman al 100 % (sin "ajustar a la página"), en papel mate o cartulina, y midan con regla. Si imprimen otro ancho, cambien `CardWidth` en `Editor/LoLARBuilder.cs` y ejecuten **LoL AR > 2**.
+- Para cambiar un diseño, reemplacen el PNG **con el mismo nombre** y ejecuten **LoL AR > 2. Generar cartas y Reference Image Library**.
 - Consejos para ARCore: mucho detalle y contraste, sin patrones repetitivos y sin grandes zonas lisas. Imprimir en mate evita reflejos.
 
 ## Mapa (Blender)

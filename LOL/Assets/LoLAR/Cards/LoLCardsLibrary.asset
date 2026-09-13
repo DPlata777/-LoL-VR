@@ -23,7 +23,7 @@ MonoBehaviour:
     m_SerializedTextureGuid:
       m_GuidLow: 16637427527475846337
       m_GuidHigh: 8696214037109143993
-    m_Size: {x: 0.063, y: 0.088}
+    m_Size: {x: 0.09, y: 0.13415}
     m_SpecifySize: 1
     m_Name: MapCard
     m_Texture: {fileID: 0}
@@ -33,7 +33,7 @@ MonoBehaviour:
     m_SerializedTextureGuid:
       m_GuidLow: 13944325049572928799
       m_GuidHigh: 10947223434451218537
-    m_Size: {x: 0.063, y: 0.088}
+    m_Size: {x: 0.09, y: 0.12764}
     m_SpecifySize: 1
     m_Name: DragonCard
     m_Texture: {fileID: 0}
