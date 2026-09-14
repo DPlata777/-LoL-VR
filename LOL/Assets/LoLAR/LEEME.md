@@ -21,9 +21,10 @@ Experiencia AR con AR Foundation 6.6 + ARCore (Android) y dos cartas físicas.
 
 ## 2. Cartas
 
-- `MapCard.png` es **Carta personaje** (Katarina, Mid Lane) y `DragonCard.png` es **Carta Dragon** (Dragón Ancestral).
+- **Para imprimir:** `Cards/Imprimir/CartaPersonaje.png` (Katarina, Mid Lane) y `Cards/Imprimir/CartaDragon.png` (Dragón Ancestral).
 - **Tamaño de impresión: 9 cm de ancho.** La carta del personaje queda de 9 × 13,4 cm y la del dragón de 9 × 12,8 cm. Impriman al 100 % (sin "ajustar a la página"), en papel mate o cartulina, y midan con regla. Si imprimen otro ancho, cambien `CardWidth` en `Editor/LoLARBuilder.cs` y ejecuten **LoL AR > 2**.
-- Para cambiar un diseño, reemplacen el PNG **con el mismo nombre** y ejecuten **LoL AR > 2. Generar cartas y Reference Image Library**.
+- **Lo que ARCore busca:** `Cards/MapCard.png` y `Cards/DragonCard.png` son **solo la ilustración** de cada carta, sin el marco ni el texto. Con la carta completa, la del personaje puntuaba 25/100 en `arcoreimg` (ARCore pide 75 o más). Con la ilustración sola, el personaje saca 95 y el dragón 100. El tamaño físico de la ilustración impresa es 7,27 × 8,91 cm (personaje) y 6,22 × 7,29 cm (dragón). El contenido 3D se centra en la ilustración, un poco más arriba del centro de la carta.
+- Para cambiar un diseño: reemplacen la carta en `Imprimir/`, recorten su ilustración en `MapCard.png` o `DragonCard.png`, actualicen los recortes en `LoLARBuilder.cs` y ejecuten **LoL AR > 2. Generar cartas y Reference Image Library**.
 - Consejos para ARCore: mucho detalle y contraste, sin patrones repetitivos y sin grandes zonas lisas. Imprimir en mate evita reflejos.
 
 ## Mapa (Blender)
