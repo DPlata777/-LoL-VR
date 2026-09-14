@@ -39,7 +39,12 @@ namespace LoLAR.EditorTools
         const string DragonCardName = "DragonCard";
 
         // Medidas físicas en metros.
-        const float CardWidth = 0.09f; // Ancho impreso de las cartas (9 cm); el alto sale de la proporción de la imagen.
+        const float CardWidth = 0.09f; // Ancho impreso de las cartas completas (9 cm).
+        // ARCore rastrea solo la ilustración de cada carta: con el marco liso la carta del personaje puntuaba 25/100,
+        // y la ilustración sola 95/100. Ancho físico de la ilustración = CardWidth × (ancho del recorte / ancho de la carta).
+        // Recortes en la imagen original: personaje x 65, y 60, 555 × 680 de 687 × 1024; dragón x 90, y 110, 410 × 480 de 593 × 841.
+        const float MapCardArtWidth = CardWidth * 555f / 687f;
+        const float DragonCardArtWidth = CardWidth * 410f / 593f;
         const float MapSize = 0.15f; // Lado del cuadrado jugable de la Grieta.
         const float IconHeight = 0.035f;
         const float DragonHeight = 0.06f;
@@ -116,6 +121,9 @@ namespace LoLAR.EditorTools
 
             PlayerSettings.SetScriptingBackend(NamedBuildTarget.Android, ScriptingImplementation.IL2CPP);
             PlayerSettings.Android.targetArchitectures = AndroidArchitecture.ARM64;
+            // ARCore "Required" con Vulkan exige Android 10 (API 29). Con solo OpenGL ES 3 la app funciona desde Android 8.
+            PlayerSettings.SetUseDefaultGraphicsAPIs(BuildTarget.Android, false);
+            PlayerSettings.SetGraphicsAPIs(BuildTarget.Android, new[] { UnityEngine.Rendering.GraphicsDeviceType.OpenGLES3 });
             PlayerSettings.SetApplicationIdentifier(NamedBuildTarget.Android, "com.lolar.experience");
             PlayerSettings.productName = "LoL AR";
 
@@ -144,8 +152,8 @@ namespace LoLAR.EditorTools
             while (library.count > 0)
                 library.RemoveAt(library.count - 1);
 
-            AddReferenceImage(library, mapTexture, MapCardName);
-            AddReferenceImage(library, dragonTexture, DragonCardName);
+            AddReferenceImage(library, mapTexture, MapCardName, MapCardArtWidth);
+            AddReferenceImage(library, dragonTexture, DragonCardName, DragonCardArtWidth);
 
             EditorUtility.SetDirty(library);
             AssetDatabase.SaveAssets();
@@ -230,14 +238,14 @@ namespace LoLAR.EditorTools
 
         // ------------------------------------------------------------------ Cartas
 
-        static void AddReferenceImage(XRReferenceImageLibrary library, Texture2D texture, string imageName)
+        static void AddReferenceImage(XRReferenceImageLibrary library, Texture2D texture, string imageName, float physicalWidth)
         {
             library.Add();
             int index = library.count - 1;
             library.SetName(index, imageName);
             library.SetTexture(index, texture, false);
             library.SetSpecifySize(index, true);
-            library.SetSize(index, new Vector2(CardWidth, CardWidth * texture.height / texture.width));
+            library.SetSize(index, new Vector2(physicalWidth, physicalWidth * texture.height / texture.width));
         }
 
         static Texture2D EnsureCardTexture(string path, int seed, Color32 frame, Color32 accent)
