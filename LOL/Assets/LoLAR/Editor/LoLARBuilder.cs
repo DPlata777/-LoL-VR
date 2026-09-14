@@ -29,6 +29,7 @@ namespace LoLAR.EditorTools
         const string CardsDir = Root + "/Cards";
         const string PrefabsDir = Root + "/Prefabs";
         const string MaterialsDir = Root + "/Materials";
+        const string TexturesDir = Root + "/Textures";
         const string AnimationsDir = Root + "/Animations";
         const string ScenesDir = Root + "/Scenes";
         const string LibraryPath = CardsDir + "/LoLCardsLibrary.asset";
@@ -54,6 +55,8 @@ namespace LoLAR.EditorTools
         const float FlyingLoopStartSeconds = 0.27f;
         const float FlyingLoopEndSeconds = 2.50f;
         const string MapModelPath = "Assets/Models/Map/summoners_rift.glb";
+        // Imagen de relleno debajo del modelo: tapa los huecos sin textura del GLB descargado.
+        const string MapFillTexturePath = TexturesDir + "/GrietaDelInvocadorRelleno.jpg";
         const string MarkerPrefix = "LoLAR_";
 
         static readonly ChampionDef[] Champions =
@@ -162,7 +165,7 @@ namespace LoLAR.EditorTools
                 library = AssetDatabase.LoadAssetAtPath<XRReferenceImageLibrary>(LibraryPath);
             }
 
-            foreach (var dir in new[] { PrefabsDir, MaterialsDir, AnimationsDir, ScenesDir })
+            foreach (var dir in new[] { PrefabsDir, MaterialsDir, TexturesDir, AnimationsDir, ScenesDir })
                 EnsureFolder(dir);
 
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
@@ -391,6 +394,7 @@ namespace LoLAR.EditorTools
                     TryGetBounds(instance.transform, out bounds);
                     instance.transform.position -= new Vector3(bounds.center.x, bounds.min.y, bounds.center.z);
                 }
+                BuildMapFillPlane(pivot, instance);
                 return true;
             }
 
@@ -406,7 +410,45 @@ namespace LoLAR.EditorTools
                 if (child.name.StartsWith(MarkerPrefix))
                     markers[child.name.Substring(MarkerPrefix.Length)] = pivot.InverseTransformPoint(child.position);
             }
+            BuildMapFillPlane(pivot, instance);
             return true;
+        }
+
+        /// <summary>
+        /// Plano con la imagen de relleno justo debajo del modelo, para que tape los huecos sin textura
+        /// del GLB (algunas zonas no tenían texturas al descargarlo). No hace nada si falta la imagen.
+        /// </summary>
+        static void BuildMapFillPlane(Transform pivot, GameObject riftInstance)
+        {
+            var texture = AssetDatabase.LoadAssetAtPath<Texture2D>(MapFillTexturePath);
+            if (!texture)
+            {
+                Debug.LogWarning($"[LoL AR] No se encontró {MapFillTexturePath}; el mapa puede mostrar huecos sin textura.");
+                return;
+            }
+
+            if (!TryGetBounds(riftInstance.transform, out var bounds))
+                return;
+
+            var fill = Prim(PrimitiveType.Quad, pivot, "MapFill",
+                new Vector3(0f, bounds.min.y - 0.0005f, 0f), Vector3.one * (MapSize * 1.05f), MapFillMaterial(texture));
+            fill.transform.localRotation = Quaternion.Euler(90f, 0f, 0f); // Boca arriba.
+        }
+
+        static Material MapFillMaterial(Texture2D texture)
+        {
+            const string path = MaterialsDir + "/MapFill.mat";
+            var material = AssetDatabase.LoadAssetAtPath<Material>(path);
+            if (!material)
+            {
+                material = new Material(Shader.Find("Universal Render Pipeline/Lit"));
+                AssetDatabase.CreateAsset(material, path);
+            }
+
+            material.SetTexture("_BaseMap", texture);
+            material.SetFloat("_Smoothness", 0.1f);
+            EditorUtility.SetDirty(material);
+            return material;
         }
 
         /// <summary>Mapa de figuras simples, usado si no está el modelo de Blender.</summary>
@@ -814,7 +856,9 @@ namespace LoLAR.EditorTools
         {
             var go = GameObject.CreatePrimitive(type);
             go.name = name;
-            Object.DestroyImmediate(go.GetComponent<Collider>());
+            var collider = go.GetComponent<Collider>();
+            if (collider) // El Quad no trae collider por defecto; los demás primitivos sí.
+                Object.DestroyImmediate(collider);
             go.transform.SetParent(parent, false);
             go.transform.localPosition = localPosition;
             go.transform.localRotation = localRotation ?? Quaternion.identity;
