@@ -26,11 +26,15 @@ namespace LoLAR
 
         static readonly Vector2[] s_Pointers = new Vector2[2];
 
+        /// <summary>Para el panel de diagnóstico (DebugHud): qué está viendo el interactor este frame.</summary>
+        public static string DebugInfo { get; private set; } = "sin datos";
+
         void Awake() => m_Camera = GetComponent<Camera>();
 
         void Update()
         {
             int count = ReadPointers(s_Pointers);
+            DebugInfo = $"punteros={count} arrastrando={m_Dragging} controlActivo={(ModelTouchController.Active ? "sí" : "no")}";
 
             if (count >= 2)
             {

@@ -25,7 +25,7 @@ namespace LoLAR
             rect.anchorMin = rect.anchorMax = new Vector2(0f, 1f);
             rect.pivot = new Vector2(0f, 1f);
             rect.anchoredPosition = new Vector2(20f, -20f);
-            rect.sizeDelta = new Vector2(700f, 200f);
+            rect.sizeDelta = new Vector2(900f, 320f);
 
             m_Text = textGo.GetComponent<Text>();
             m_Text.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
@@ -40,10 +40,17 @@ namespace LoLAR
                 return;
 
             string distance = controller.CurrentDistance >= 0f ? $"{controller.CurrentDistance:0.000} m" : "-";
+            var audio = controller.ActiveAudioSource;
+            string audioInfo = audio
+                ? $"{audio.gameObject.name}: clip={(audio.clip ? audio.clip.name : "SIN CLIP")} sonando={audio.isPlaying} vol={audio.volume:0.0}"
+                : "sin contenido activo";
+
             m_Text.text = $"Mapa visible: {controller.MapVisible}\n" +
                           $"Dragón visible: {controller.DragonVisible}\n" +
                           $"Distancia entre cartas: {distance}\n" +
-                          $"Batalla activa: {controller.BattleActive}";
+                          $"Batalla activa: {controller.BattleActive}\n" +
+                          $"Toque: {TapInteractor.DebugInfo}\n" +
+                          $"Audio: {audioInfo}";
         }
     }
 }
