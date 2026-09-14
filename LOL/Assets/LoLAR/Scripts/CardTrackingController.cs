@@ -32,6 +32,10 @@ namespace LoLAR
         [Header("Tracking")]
         [Tooltip("Segundos que el contenido sigue visible después de perder la carta.")]
         public float lostGraceTime = 0.35f;
+        [Tooltip("Suavizado de la posición al seguir la carta. Más alto = sigue más rápido pero tiembla más; más bajo = más suave pero con más retraso.")]
+        public float positionSmoothing = 15f;
+        [Tooltip("Igual que Position Smoothing pero para la rotación.")]
+        public float rotationSmoothing = 15f;
 
         ARTrackedImageManager m_Manager;
         readonly Dictionary<TrackableId, ARTrackedImage> m_Images = new Dictionary<TrackableId, ARTrackedImage>();
@@ -42,6 +46,22 @@ namespace LoLAR
         float m_DragonLastSeen = float.NegativeInfinity;
 
         public bool BattleActive { get; private set; }
+        // Para depurar por qué no arranca la batalla (ver DebugHud) sin necesitar el log de Android.
+        public bool MapVisible { get; private set; }
+        public bool DragonVisible { get; private set; }
+        public float CurrentDistance { get; private set; } = -1f;
+
+        /// <summary>AudioSource del contenido activo ahora mismo (mapa, dragón o batalla), si hay alguno.</summary>
+        public AudioSource ActiveAudioSource
+        {
+            get
+            {
+                if (m_Map && m_Map.activeSelf) return m_Map.GetComponent<AudioSource>();
+                if (m_Dragon && m_Dragon.activeSelf) return m_Dragon.GetComponent<AudioSource>();
+                if (m_Battle && m_Battle.activeSelf) return m_Battle.GetComponent<AudioSource>();
+                return null;
+            }
+        }
 
         void Awake()
         {
@@ -103,10 +123,13 @@ namespace LoLAR
 
             bool mapVisible = now - m_MapLastSeen <= lostGraceTime;
             bool dragonVisible = now - m_DragonLastSeen <= lostGraceTime;
+            MapVisible = mapVisible;
+            DragonVisible = dragonVisible;
 
             if (mapVisible && dragonVisible)
             {
                 float distance = Vector3.Distance(m_MapPose.position, m_DragonPose.position);
+                CurrentDistance = distance;
                 if (!BattleActive && distance < battleEnterDistance)
                     BattleActive = true;
                 else if (BattleActive && distance > battleExitDistance)
@@ -115,6 +138,7 @@ namespace LoLAR
             else
             {
                 BattleActive = false;
+                CurrentDistance = -1f;
             }
 
             Show(m_Map, mapVisible, m_MapPose);
@@ -122,17 +146,32 @@ namespace LoLAR
             Show(m_Battle, dragonVisible && BattleActive, m_DragonPose);
         }
 
-        static void Show(GameObject content, bool visible, Pose pose)
+        void Show(GameObject content, bool visible, Pose pose)
         {
             if (!content)
                 return;
 
-            // La pose se aplica antes de activar para que OnEnable ya vea la posición correcta.
-            if (visible)
-                content.transform.SetPositionAndRotation(pose.position, pose.rotation);
+            if (!visible)
+            {
+                if (content.activeSelf)
+                    content.SetActive(false);
+                return;
+            }
 
-            if (content.activeSelf != visible)
-                content.SetActive(visible);
+            if (!content.activeSelf)
+            {
+                // Recién aparece: coloca directo, sin suavizar desde donde estaba la última vez.
+                content.transform.SetPositionAndRotation(pose.position, pose.rotation);
+                content.SetActive(true);
+                return;
+            }
+
+            // El tracking de ARCore tiembla un poco cuadro a cuadro; suaviza en vez de seguirlo en crudo.
+            float posT = 1f - Mathf.Exp(-positionSmoothing * Time.deltaTime);
+            float rotT = 1f - Mathf.Exp(-rotationSmoothing * Time.deltaTime);
+            content.transform.SetPositionAndRotation(
+                Vector3.Lerp(content.transform.position, pose.position, posT),
+                Quaternion.Slerp(content.transform.rotation, pose.rotation, rotT));
         }
     }
 }
