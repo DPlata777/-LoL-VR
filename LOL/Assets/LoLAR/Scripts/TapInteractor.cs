@@ -92,12 +92,18 @@ namespace LoLAR
         void Tap(Vector2 screenPosition)
         {
             var ray = m_Camera.ScreenPointToRay(screenPosition);
-            if (!Physics.Raycast(ray, out var hit, maxRayDistance, raycastMask))
-                return;
+            if (Physics.Raycast(ray, out var hit, maxRayDistance, raycastMask))
+            {
+                var popup = hit.collider.GetComponentInParent<LanePopup>();
+                if (popup)
+                {
+                    popup.Toggle();
+                    return;
+                }
+            }
 
-            var popup = hit.collider.GetComponentInParent<LanePopup>();
-            if (popup)
-                popup.Toggle();
+            // Tocar en cualquier otro lado (el ícono, el panel de texto, o afuera) cierra el que esté abierto.
+            LanePopup.CloseAll();
         }
 
         /// <summary>Llena <paramref name="buffer"/> (tamaño 2) con los punteros presionados y devuelve cuántos hay.</summary>

@@ -62,5 +62,12 @@ namespace LoLAR
             if (infoPanel)
                 infoPanel.SetActive(open);
         }
+
+        /// <summary>Cierra cualquier panel abierto. Se usa al tocar fuera de todos los pop-ups.</summary>
+        public static void CloseAll()
+        {
+            foreach (var popup in s_Enabled)
+                popup.SetOpen(false);
+        }
     }
 }
