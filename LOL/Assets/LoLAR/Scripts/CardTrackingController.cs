@@ -9,7 +9,7 @@ namespace LoLAR
     /// Escucha las cartas detectadas por ARTrackedImageManager y decide qué contenido mostrar:
     /// - Carta Mapa   -> mapa de la Grieta con los pop-ups de cada rol.
     /// - Carta Dragón -> dragón solo.
-    /// - Ambas cartas a menos de <see cref="battleEnterDistance"/> -> batalla sobre la carta del dragón.
+    /// - Ambas cartas a menos de <see cref="battleEnterDistance"/> -> batalla sobre la carta del dragón (el mapa se oculta).
     /// </summary>
     [RequireComponent(typeof(ARTrackedImageManager))]
     public class CardTrackingController : MonoBehaviour
@@ -32,6 +32,10 @@ namespace LoLAR
         [Header("Tracking")]
         [Tooltip("Segundos que el contenido sigue visible después de perder la carta.")]
         public float lostGraceTime = 0.35f;
+        [Tooltip("Segundos que una carta sigue contando para la batalla después de verla bien. Con las dos cartas en cuadro, " +
+                 "ARCore suele rastrear bien solo una y reporta la otra con su última posición conocida; como las cartas " +
+                 "están quietas sobre la mesa, esa posición sirve para medir la distancia.")]
+        public float battleMemoryTime = 8f;
         [Tooltip("Suavizado de la posición al seguir la carta. Más alto = sigue más rápido pero tiembla más; más bajo = más suave pero con más retraso.")]
         public float positionSmoothing = 15f;
         [Tooltip("Igual que Position Smoothing pero para la rotación.")]
@@ -101,9 +105,19 @@ namespace LoLAR
         {
             float now = Time.time;
 
+            // Se lee la colección del manager en cada frame además de los eventos, para no depender de que llegue
+            // cada "added/updated" (si alguno se pierde, la carta seguiría invisible para siempre).
+            foreach (var image in m_Manager.trackables)
+                m_Images[image.trackableId] = image;
+
             foreach (var image in m_Images.Values)
             {
-                if (image == null || image.trackingState != TrackingState.Tracking)
+                if (image == null)
+                    continue;
+
+                // Tracking = la cámara ve la carta ahora. Limited = ARCore conserva su última posición conocida.
+                bool tracking = image.trackingState == TrackingState.Tracking;
+                if (!tracking && image.trackingState != TrackingState.Limited)
                     continue;
 
                 var pose = new Pose(image.transform.position, image.transform.rotation);
@@ -112,12 +126,14 @@ namespace LoLAR
                 if (imageName == mapCardName)
                 {
                     m_MapPose = pose;
-                    m_MapLastSeen = now;
+                    if (tracking)
+                        m_MapLastSeen = now;
                 }
                 else if (imageName == dragonCardName)
                 {
                     m_DragonPose = pose;
-                    m_DragonLastSeen = now;
+                    if (tracking)
+                        m_DragonLastSeen = now;
                 }
             }
 
@@ -126,7 +142,14 @@ namespace LoLAR
             MapVisible = mapVisible;
             DragonVisible = dragonVisible;
 
-            if (mapVisible && dragonVisible)
+            // Para la batalla basta con haber visto cada carta hace poco: no hace falta que ARCore rastree las dos en el mismo frame.
+            bool mapRemembered = now - m_MapLastSeen <= battleMemoryTime;
+            bool dragonRemembered = now - m_DragonLastSeen <= battleMemoryTime;
+
+            // Una vez iniciada, la batalla sigue mientras se recuerde la carta del dragón (la cámara suele enfocar solo esa);
+            // termina si las cartas se separan (al volver a ver una carta en otro lugar, la distancia crece).
+            bool hasBothPoses = dragonRemembered && (mapRemembered || BattleActive);
+            if (hasBothPoses)
             {
                 float distance = Vector3.Distance(m_MapPose.position, m_DragonPose.position);
                 CurrentDistance = distance;
@@ -141,9 +164,10 @@ namespace LoLAR
                 CurrentDistance = -1f;
             }
 
-            Show(m_Map, mapVisible, m_MapPose);
+            // Durante la batalla se oculta el mapa: mide ~20 cm y taparía la batalla en la carta de al lado.
+            Show(m_Map, mapVisible && !BattleActive, m_MapPose);
             Show(m_Dragon, dragonVisible && !BattleActive, m_DragonPose);
-            Show(m_Battle, dragonVisible && BattleActive, m_DragonPose);
+            Show(m_Battle, BattleActive, m_DragonPose);
         }
 
         void Show(GameObject content, bool visible, Pose pose)

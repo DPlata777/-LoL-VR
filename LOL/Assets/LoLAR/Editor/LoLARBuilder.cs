@@ -72,7 +72,7 @@ namespace LoLAR.EditorTools
 
         // Panel de texto en pantalla con el estado del tracking (mapa/dragón visibles, distancia entre
         // cartas, batalla activa). Ponlo en false y regenera cuando ya no lo necesites para depurar.
-        const bool ShowDebugHud = true;
+        const bool ShowDebugHud = false;
 
         static readonly ChampionDef[] Champions =
         {
@@ -671,11 +671,17 @@ namespace LoLAR.EditorTools
         static GameObject BuildBattleContent(Palette p)
         {
             var root = new GameObject("BattleContent");
-            var director = root.AddComponent<BattleDirector>();
-            var pit = BuildPit(root.transform, BattleRadius * 2.3f, p);
+            // Igual que el mapa y el dragón solo: todo cuelga de un Pivot que se gira y se acerca con los dedos.
+            // BattleDirector va en el Pivot para que sus posiciones locales y la dirección de los golpes sigan el giro.
+            var pivot = new GameObject("Pivot");
+            pivot.transform.SetParent(root.transform, false);
+            pivot.AddComponent<ModelTouchController>();
+
+            var director = pivot.AddComponent<BattleDirector>();
+            var pit = BuildPit(pivot.transform, BattleRadius * 2.3f, p);
 
             var dragon = new GameObject("Dragon").transform;
-            dragon.SetParent(root.transform, false);
+            dragon.SetParent(pivot.transform, false);
             SpawnModel(DragonModelPath, dragon, DragonHeight, DragonYaw, "Dragon");
             dragon.localRotation = Quaternion.Euler(0f, 180f, 0f);
             dragon.gameObject.AddComponent<ModelAnimationLooper>().pauseBetweenCycles = Vector2.zero;
@@ -687,7 +693,7 @@ namespace LoLAR.EditorTools
             var roar = VfxFactory.CreateRoarBurst(dragon, p.Particles);
             roar.transform.localPosition = new Vector3(0f, DragonHeight * 0.7f, DragonHeight * 0.4f);
 
-            var hitSparks = VfxFactory.CreateHitSparks(root.transform, p.Particles);
+            var hitSparks = VfxFactory.CreateHitSparks(pivot.transform, p.Particles);
 
             var champions = new Transform[Champions.Length];
             var flashes = new ParticleSystem[Champions.Length];
@@ -696,7 +702,7 @@ namespace LoLAR.EditorTools
             {
                 var def = Champions[i];
                 var holder = new GameObject(def.Name).transform;
-                holder.SetParent(root.transform, false);
+                holder.SetParent(pivot.transform, false);
                 SpawnModel(def.ModelPath, holder, def.Height, ChampionYaw, def.Name);
 
                 // Semicírculo del lado -Z (el más cercano a quien sostiene la carta), mirando al dragón.
