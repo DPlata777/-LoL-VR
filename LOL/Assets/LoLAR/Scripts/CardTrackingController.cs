@@ -42,6 +42,10 @@ namespace LoLAR
         float m_DragonLastSeen = float.NegativeInfinity;
 
         public bool BattleActive { get; private set; }
+        // Para depurar por qué no arranca la batalla (ver DebugHud) sin necesitar el log de Android.
+        public bool MapVisible { get; private set; }
+        public bool DragonVisible { get; private set; }
+        public float CurrentDistance { get; private set; } = -1f;
 
         void Awake()
         {
@@ -103,10 +107,13 @@ namespace LoLAR
 
             bool mapVisible = now - m_MapLastSeen <= lostGraceTime;
             bool dragonVisible = now - m_DragonLastSeen <= lostGraceTime;
+            MapVisible = mapVisible;
+            DragonVisible = dragonVisible;
 
             if (mapVisible && dragonVisible)
             {
                 float distance = Vector3.Distance(m_MapPose.position, m_DragonPose.position);
+                CurrentDistance = distance;
                 if (!BattleActive && distance < battleEnterDistance)
                     BattleActive = true;
                 else if (BattleActive && distance > battleExitDistance)
@@ -115,6 +122,7 @@ namespace LoLAR
             else
             {
                 BattleActive = false;
+                CurrentDistance = -1f;
             }
 
             Show(m_Map, mapVisible, m_MapPose);

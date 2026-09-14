@@ -4,9 +4,9 @@ Experiencia AR con AR Foundation 6.6 + ARCore (Android) y dos cartas físicas.
 
 | Carta | Nombre en la librería | Qué aparece |
 |-------|----------------------|-------------|
-| Personaje / Mapa | `MapCard` | Mapa de la Grieta con 5 íconos (Top, Jungla, Mid, Bot/ADC, Soporte). Toca un ícono para ver su info. Desliza el dedo para girar el mapa. |
-| Dragón | `DragonCard` | El dragón volando (`Models/Dragon/dragon_flying.glb`). Su clip "Landing" aterriza al final, así que solo se repite el tramo de vuelo de 0,27 s a 2,50 s (`FlyingLoopStartSeconds`/`FlyingLoopEndSeconds` en el builder). |
-| Ambas juntas (< 15 cm) | — | Batalla sobre la carta del dragón: el Dragón Ancestral (`elder_dragon.glb`) sale de la fosa, ruge y pelea contra 5 campeones (Ashe, Braum, Dr. Mundo, Katarina, Maestro Yi). |
+| Personaje / Mapa | `MapCard` | Mapa de la Grieta con 5 íconos (Top, Jungla, Mid, Bot/ADC, Soporte) y música "Tales of the Rift" en bucle. Toca un ícono para ver su info. 1 dedo gira e inclina el mapa (360°), pellizcar con 2 dedos hace zoom. |
+| Dragón | `DragonCard` | El dragón volando (`Models/Dragon/dragon_flying.glb`) con música del tema de Samira en bucle, y un ícono con info del Dragón como objetivo. Su clip "Landing" aterriza al final, así que solo se repite el tramo de vuelo de 0,27 s a 2,50 s (`FlyingLoopStartSeconds`/`FlyingLoopEndSeconds` en el builder). Mismos gestos que el mapa (rotar/zoom). |
+| Ambas juntas (< 15 cm) | — | Batalla sobre la carta del dragón, con "Legends Never Die" en bucle: el Dragón Ancestral (`elder_dragon.glb`) sale de la fosa, ruge y pelea contra 5 campeones (Ashe, Braum, Dr. Mundo, Katarina, Maestro Yi). Reemplaza al dragón volando solo mientras dura. |
 
 ## 1. Primera vez
 
@@ -55,11 +55,23 @@ Luego ejecuten **LoL AR > 3. Generar prefabs y escena**. Para mover un pop-up, c
 | Tamaño del mapa, dragón o campeones | `MapSize` (lado del cuadrado jugable), `DragonHeight` y la altura de cada campeón en `LoLARBuilder.cs` |
 | Textos de los roles | arreglo `Roles` en `LoLARBuilder.cs` |
 | Ritmo del combate | componente `BattleDirector` del prefab `BattleContent` |
+| Sensibilidad de rotación/zoom | `ModelTouchController` (`degreesPerPixel`, `maxTilt`, `zoomRange`) en el `Pivot` del mapa o del dragón |
+| Música de cada carta | `MapMusicPath` / `DragonMusicPath` / `BattleMusicPath` en `LoLARBuilder.cs`; los MP3 están en `Assets/LoLAR/Audio/` |
 
 > **LoL AR > 3** sobrescribe los prefabs y la escena. Si los editan a mano, hagan esos cambios después o muévanlos a otra carpeta.
+
+## Si la batalla no arranca al juntar las cartas
+
+Hay un panel de texto en la esquina superior izquierda (componente `DebugHud`, activo por defecto) que muestra si cada carta está visible, la distancia entre ellas y si la batalla está activa. Con eso:
+
+- Si la distancia no baja al acercar las cartas físicamente, lo más probable es que el ancho impreso real no sea 9 cm exactos: ARCore usa ese dato para calcular la escala del mundo, y si está mal, todas las distancias salen infladas o achicadas. Midan con regla y ajusten `CardWidth` si hace falta.
+- Si la distancia sí baja pero nunca cruza el umbral, ajusten `Battle Enter/Exit Distance` en el inspector (no hace falta regenerar).
+- Cuando ya no lo necesiten, pongan `ShowDebugHud` en `false` en `LoLARBuilder.cs` y ejecuten **LoL AR > 3** para quitar el panel.
 
 ## Scripts
 
 - `CardTrackingController`: rastrea las cartas, calcula la distancia y muestra u oculta el mapa, el dragón o la batalla.
-- `LanePopup`, `TapInteractor`, `MapRotator`, `Billboard`: íconos, toque, rotación y paneles.
+- `LanePopup`, `TapInteractor`, `ModelTouchController`, `Billboard`: íconos, toque (tap/arrastre/pellizco), rotación+zoom y paneles.
 - `BattleDirector`, `VfxFactory`, `ModelAnimationLooper`: cinemática en 4 fases, partículas y animaciones de los GLB.
+- `AutoLoopMusic`: reproduce en bucle la música del contenido mientras está activo.
+- `DebugHud`: panel de diagnóstico en pantalla (ver arriba).

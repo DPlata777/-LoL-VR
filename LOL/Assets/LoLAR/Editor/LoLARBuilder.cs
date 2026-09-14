@@ -30,6 +30,7 @@ namespace LoLAR.EditorTools
         const string PrefabsDir = Root + "/Prefabs";
         const string MaterialsDir = Root + "/Materials";
         const string TexturesDir = Root + "/Textures";
+        const string AudioDir = Root + "/Audio";
         const string AnimationsDir = Root + "/Animations";
         const string ScenesDir = Root + "/Scenes";
         const string LibraryPath = CardsDir + "/LoLCardsLibrary.asset";
@@ -58,6 +59,15 @@ namespace LoLAR.EditorTools
         // Imagen de relleno debajo del modelo: tapa los huecos sin textura del GLB descargado.
         const string MapFillTexturePath = TexturesDir + "/GrietaDelInvocadorRelleno.jpg";
         const string MarkerPrefix = "LoLAR_";
+
+        // Música de fondo: suena en bucle mientras su contenido está a la vista (ver AutoLoopMusic).
+        const string MapMusicPath = AudioDir + "/TalesOfTheRift.mp3";
+        const string DragonMusicPath = AudioDir + "/Samira.mp3";
+        const string BattleMusicPath = AudioDir + "/LegendsNeverDie.mp3";
+
+        // Panel de texto en pantalla con el estado del tracking (mapa/dragón visibles, distancia entre
+        // cartas, batalla activa). Ponlo en false y regenera cuando ya no lo necesites para depurar.
+        const bool ShowDebugHud = true;
 
         static readonly ChampionDef[] Champions =
         {
@@ -165,7 +175,7 @@ namespace LoLAR.EditorTools
                 library = AssetDatabase.LoadAssetAtPath<XRReferenceImageLibrary>(LibraryPath);
             }
 
-            foreach (var dir in new[] { PrefabsDir, MaterialsDir, TexturesDir, AnimationsDir, ScenesDir })
+            foreach (var dir in new[] { PrefabsDir, MaterialsDir, TexturesDir, AudioDir, AnimationsDir, ScenesDir })
                 EnsureFolder(dir);
 
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
@@ -344,7 +354,7 @@ namespace LoLAR.EditorTools
             var root = new GameObject("MapContent");
             var pivot = new GameObject("Pivot");
             pivot.transform.SetParent(root.transform, false);
-            pivot.AddComponent<MapRotator>();
+            pivot.AddComponent<ModelTouchController>();
 
             if (!TryBuildRiftModel(pivot.transform, out var markers))
                 BuildProceduralRift(pivot.transform, p);
@@ -357,6 +367,7 @@ namespace LoLAR.EditorTools
                 BuildLanePopup(pivot.transform, role, position, p);
             }
 
+            AddMusic(root, MapMusicPath);
             return root;
         }
 
@@ -574,13 +585,17 @@ namespace LoLAR.EditorTools
         static GameObject BuildDragonContent(Palette p)
         {
             var root = new GameObject("DragonContent");
-            BuildPit(root.transform, 0.12f, p);
+            var pivot = new GameObject("Pivot");
+            pivot.transform.SetParent(root.transform, false);
+            pivot.AddComponent<ModelTouchController>();
+
+            BuildPit(pivot.transform, 0.12f, p);
 
             // Carta del dragón sola: dragón volando. El Dragón Ancestral con su animación queda para la batalla.
             // Label distinto para no sobrescribir Dragon.controller, que usa BattleContent.
             var modelPath = AssetDatabase.LoadAssetAtPath<GameObject>(FlyingDragonModelPath) ? FlyingDragonModelPath : DragonModelPath;
             var dragon = new GameObject("DragonFlying").transform;
-            dragon.SetParent(root.transform, false);
+            dragon.SetParent(pivot.transform, false);
             SpawnModel(modelPath, dragon, DragonHeight, DragonYaw, "DragonFlying");
             dragon.localRotation = Quaternion.Euler(0f, 180f, 0f); // Mirando hacia quien sostiene la carta.
 
@@ -597,7 +612,44 @@ namespace LoLAR.EditorTools
                 looper.segmentBlend = 0.2f;
             }
 
+            BuildDragonInfoPopup(pivot.transform, p);
+            AddMusic(root, DragonMusicPath);
             return root;
+        }
+
+        /// <summary>Ícono con información del Dragón como objetivo, igual que los pop-ups de rol del mapa.</summary>
+        static void BuildDragonInfoPopup(Transform parent, Palette p)
+        {
+            var popupGo = new GameObject("Popup_Dragon");
+            popupGo.transform.SetParent(parent, false);
+            popupGo.transform.localPosition = new Vector3(0.07f, 0f, 0f);
+            var material = Palette.Lit("DragonObjective", new Color(1f, 0.55f, 0.15f), 0.6f, true);
+
+            Prim(PrimitiveType.Cylinder, popupGo.transform, "Pole", new Vector3(0f, IconHeight * 0.5f, 0f), new Vector3(0.0012f, IconHeight * 0.5f, 0.0012f), p.Pole);
+            Prim(PrimitiveType.Cylinder, popupGo.transform, "Ring", new Vector3(0f, 0.0015f, 0f), new Vector3(0.014f, 0.0008f, 0.014f), material);
+
+            var icon = new GameObject("Icon").transform;
+            icon.SetParent(popupGo.transform, false);
+            icon.localPosition = Vector3.up * IconHeight;
+            Prim(PrimitiveType.Sphere, icon, "Orb", Vector3.zero, Vector3.one * 0.017f, material);
+            icon.gameObject.AddComponent<SphereCollider>().radius = 0.014f;
+
+            var label = CreateWorldCanvas(popupGo.transform, "Label", new Vector2(360f, 80f), Vector3.up * (IconHeight + 0.018f), 0.00012f, new Color(0f, 0f, 0f, 0.6f));
+            AddText(label, "Dragón", p.Font, 50, new Color(1f, 0.55f, 0.15f), FontStyle.Bold, TextAnchor.MiddleCenter, 0f, 80f);
+
+            var panel = CreateWorldCanvas(popupGo.transform, "InfoPanel", new Vector2(560f, 460f), Vector3.up * (IconHeight + 0.07f), 0.00016f, new Color(0.04f, 0.05f, 0.09f, 0.88f));
+            AddText(panel, "Dragón Ancestral", p.Font, 56, new Color(1f, 0.55f, 0.15f), FontStyle.Bold, TextAnchor.MiddleLeft, 16f, 70f);
+            AddText(panel, "Objetivo neutral", p.Font, 30, p.GoldText, FontStyle.Bold, TextAnchor.UpperLeft, 96f, 40f);
+            AddText(panel, "Vive en su fosa desde el minuto 5. Al derrotarlo, tu equipo recibe una mejora permanente; reunir 4 mejoras del mismo tipo otorga el Alma del Dragón.",
+                p.Font, 26, Color.white, FontStyle.Normal, TextAnchor.UpperLeft, 136f, 130f);
+            AddText(panel, "Quién suele pelearlo", p.Font, 30, p.GoldText, FontStyle.Bold, TextAnchor.UpperLeft, 282f, 40f);
+            AddText(panel, "Jungla y Bot/Soporte, por la cercanía de la línea inferior a su fosa.", p.Font, 26, Color.white, FontStyle.Normal, TextAnchor.UpperLeft, 322f, 80f);
+            AddText(panel, "Toca el ícono para cerrar", p.Font, 22, new Color(0.7f, 0.7f, 0.75f), FontStyle.Italic, TextAnchor.LowerRight, 410f, 32f);
+
+            var popup = popupGo.AddComponent<LanePopup>();
+            popup.icon = icon;
+            popup.infoPanel = panel.gameObject;
+            panel.gameObject.SetActive(false);
         }
 
         static float GetClipLength(string assetPath)
@@ -664,7 +716,26 @@ namespace LoLAR.EditorTools
             director.spawnFlashes = flashes;
             director.championHitColors = hitColors;
             director.dragonHeight = DragonHeight;
+            AddMusic(root, BattleMusicPath);
             return root;
+        }
+
+        /// <summary>Agrega un AudioSource en bucle que suena solo mientras <paramref name="root"/> está activo.</summary>
+        static void AddMusic(GameObject root, string clipPath)
+        {
+            var clip = AssetDatabase.LoadAssetAtPath<AudioClip>(clipPath);
+            if (!clip)
+            {
+                Debug.LogWarning($"[LoL AR] No se encontró {clipPath}; ese contenido no tendrá música.");
+                return;
+            }
+
+            var source = root.AddComponent<AudioSource>();
+            source.clip = clip;
+            source.playOnAwake = false;
+            source.loop = true;
+            source.spatialBlend = 0f; // Música 2D: no depende de la posición de la carta.
+            root.AddComponent<AutoLoopMusic>();
         }
 
         static Transform BuildPit(Transform parent, float diameter, Palette p)
@@ -841,6 +912,9 @@ namespace LoLAR.EditorTools
             controller.mapContentPrefab = mapPrefab;
             controller.dragonContentPrefab = dragonPrefab;
             controller.battleContentPrefab = battlePrefab;
+
+            if (ShowDebugHud)
+                cameraGo.AddComponent<DebugHud>().controller = controller;
         }
 
         // ------------------------------------------------------------------ Utilidades
